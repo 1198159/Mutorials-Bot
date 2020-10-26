@@ -105,7 +105,7 @@ bot.on('messageReactionAdd', async (reaction, user) => {
 	if(reaction.emoji.name === getPollEmoji(msg) || reaction.emoji.name === getPollEmoji(msg).name){
           const args = processMsg(msg);
 	      args.forEach((a)  => {
-	           msg.react(a).catch(error => {});
+	           if(!isAlphaNumeric(a)) msg.react(a).catch(error => {});
 	      });
 	}
 });
