@@ -35,7 +35,7 @@ class Trigger{
             this.children.forEach(child => {
                 if(child.prefixes.includes(args[0])){
                     noneFound = false;
-                    args.shift()
+                    args.shift();
                     child.process(message, args);
                 }
             });
@@ -43,14 +43,18 @@ class Trigger{
                 message.reply('No command was found, type !quickpoll help for available commands');
             }
         }else {
-            this.children(message, args.length > 0 ? args[0] : pollEmoji);
+            this.children(message, args.length > 0 ? args[0] : getPollEmoji(message));
         }
     }
 }
 
-var pollEmoji = '📊';
+var defaultPollEmoji = '📊';
+
 let pollEmojiTrigger = new Trigger(['trig', 'trigger', 'polltrigger', 'polltrig'], async function (msg, a) {
-    await msg.react(a).then(emo => pollEmoji = emo.emoji).catch(error => msg.reply('Error'));
+    await msg.react(a).then(emo => {
+        pollEmojiMap.set(msg.channel.guild, emo.emoji);
+        print(msg, `[TRIGGERCHANGE] QuickPoll trigger is ${emo.emoji}`);
+    }).catch(error => msg.reply('Error'));
     await sleep(2000);
     //msg.clearReactions();
 });
@@ -67,14 +71,16 @@ const helpEmbed = new Discord.RichEmbed()
 	.setTimestamp()
 	.setFooter('QuickPoll Bot '+getBotVersion());
 
+let pollEmojiMap = new Map();
+
 bot.on('message', async msg => {
   if(msg.author.equals(bot.user)) return;
 
   const args = processMsg(msg);
 
   const command = args.shift().toLowerCase();
-
-  console.info(`Called command: ${command}`);
+  if(!command.startsWith('!')) return;
+  print(msg, `[COMMAND]: ${command}`);
 
   //args.forEach(arg => console.log(arg));
 
@@ -91,23 +97,21 @@ bot.on('messageReactionAdd', async (reaction, user) => {
 		try {
 			await reaction.fetch();
 		} catch (error) {
+		    print(msg, `[ERROR] See Below`);
 			console.error('Something went wrong when fetching the message: ', error);
 			return;
 		}
 	}
-	console.log(reaction.emoji.name);
-	if(reaction.emoji.name === pollEmoji || reaction.emoji.name === pollEmoji.name){
+	if(reaction.emoji.name === getPollEmoji(msg) || reaction.emoji.name === getPollEmoji(msg).name){
           const args = processMsg(msg);
-	      args.forEach(async (a) => {
-	            if(!isAlphaNumeric(a))
-	                msg.react(a).catch(error => console.log(`${a} is not an emoji`));
+	      args.forEach((a)  => {
+	           msg.react(a).catch(error => {});
 	      });
-
 	}
 });
 
 function processMsg (msg) {
-    return msg.content.replace('<', '').replace('>', '').split(' ');
+    return msg.content.split('<').join('').split('>').join('').split(/ +/);
 }
 
 function isAlphaNumeric(str) {
@@ -131,4 +135,14 @@ function sleep(ms) {
 
 function getBotVersion(){
     return "v1.0.0"
+}
+
+function getPollEmoji(msg){
+    if(!pollEmojiMap.has(msg.channel.guild)){
+        pollEmojiMap.set(msg.channel.guild, defaultPollEmoji);
+    }
+    return pollEmojiMap.get(msg.channel.guild);
+}
+function print(msg, item){
+  console.info(`[${msg.channel.guild}][${msg.channel.name}][${msg.author.username}]${item}`);
 }
